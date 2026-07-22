@@ -1,0 +1,22 @@
+# Mac OS
+.DS_Store
+
+# React (Frontend)
+frontend-vardiya/node_modules/
+frontend-vardiya/dist/
+frontend-vardiya/build/
+frontend-vardiya/.env
+
+# Spring Boot (Backend)
+backend/target/
+backend/build/
+backend/.mvn/
+backend/mvnw
+backend/mvnw.cmd
+backend/.idea/
+*.class
+*.jar
+*.war
+
+# VS Code
+.vscode/
