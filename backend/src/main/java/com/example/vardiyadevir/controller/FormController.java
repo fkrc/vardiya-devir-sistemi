@@ -102,7 +102,7 @@ public class FormController {
             }
             
             shiftFormRepository.save(form);
-            return ResponseEntity.ok(form.getStatus());
+            return ResponseEntity.ok("İşlem başarıyla tamamlandı.");
         }).orElse(ResponseEntity.notFound().build());
     }
 }
