@@ -23,7 +23,7 @@ import FormCatalog from './components/FormCatalog';
 import FormWizard from './components/FormWizard';
 import FormDetail from './components/FormDetail';
 
-// Operasyonel Kurumsal MUI Teması
+
 const theme = createTheme({
   palette: {
     primary: { main: '#1976d2' },

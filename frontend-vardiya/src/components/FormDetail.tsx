@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   Box, 
   Button, 
@@ -10,6 +10,9 @@ import {
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+// @ts-ignore
+import html2pdf from 'html2pdf.js';
 import type { CurrentUser, FormSchema } from '../types';
 
 interface FormDetailProps {
@@ -23,6 +26,9 @@ export default function FormDetail({ formId, currentUser, onBack, onSuccess }: F
   const [selectedForm, setSelectedForm] = useState<any>(null);
   const [schema, setSchema] = useState<FormSchema | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // YENİ: PDF'e dönüştürülecek HTML alanını yakalamak için referans
+  const pdfRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch(`http://localhost:8080/api/forms/${formId}`)
@@ -70,6 +76,22 @@ export default function FormDetail({ formId, currentUser, onBack, onSuccess }: F
     }
   };
 
+  const handleDownloadPdf = () => {
+    const element = pdfRef.current;
+    if (!element) return;
+
+    const opt = {
+      margin:       10,
+      filename:     `Vardiya_Raporu_${selectedForm.unitName || 'Birim'}_ID${selectedForm.id}.pdf`,
+      // TIP DÜZELTMESİ: 'jpeg' ve 'portrait' değerlerini kütüphanenin beklediği tipe zorluyoruz
+      image:        { type: 'jpeg' as 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2 },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' as 'portrait' }
+    };
+
+    html2pdf().set(opt).from(element).save();
+  };
+
   if (loading || !selectedForm) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
@@ -82,6 +104,9 @@ export default function FormDetail({ formId, currentUser, onBack, onSuccess }: F
 
   // DÜZELTME 2: Varsayılan statü DRAFT olduğu için DRAFT olanları da onay bekliyor kabul ediyoruz
   const isPending = selectedForm.status === 'PENDING_MANAGER_APPROVAL' || selectedForm.status === 'DRAFT';
+  
+  // YENİ: Formun tamamlanıp tamamlanmadığını kontrol ediyoruz
+  const isCompleted = selectedForm.status === 'COMPLETED';
 
   return (
     <Box sx={{ width: '100%', maxWidth: 900, mx: 'auto', animation: 'fadeIn 0.5s ease-in', pb: 5 }}>
@@ -101,6 +126,19 @@ export default function FormDetail({ formId, currentUser, onBack, onSuccess }: F
         </Box>
         <Box sx={{ display: 'flex', gap: 2 }}>
           
+          {/* YENİ: Sadece form COMPLETED ise PDF butonu gösterilir */}
+          {isCompleted && (
+            <Button 
+              variant="contained" 
+              color="info" 
+              startIcon={<PictureAsPdfIcon />}
+              onClick={handleDownloadPdf}
+              sx={{ boxShadow: 2 }}
+            >
+              PDF İndir
+            </Button>
+          )}
+
           {/* Sadece MANAGER yetkisi olanlar onaylayabilir */}
           {isPending && currentUser.role === 'MANAGER' && (
             <Button 
@@ -120,67 +158,80 @@ export default function FormDetail({ formId, currentUser, onBack, onSuccess }: F
         </Box>
       </Box>
 
-      <Paper elevation={3} sx={{ p: { xs: 3, md: 5 }, borderRadius: 2 }}>
-        
-        {/* DÜZELTME 4: Güvenlik Ağı (Şema varsa normal çiz, yoksa Fallback tablo çiz) */}
-        {schema && schema.sections && schema.sections.length > 0 ? (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {schema.sections.map((sec, idx) => (
-              <Box key={idx}>
-                <Typography variant="h6" sx={{ color: '#2c3e50', mb: 2, borderBottom: '2px solid #ecf0f1', pb: 1 }}>
-                  {sec.title}
-                </Typography>
-                
-                {/* MUI v6 Grid Kullanımı */}
-                <Grid container spacing={3}>
-                  {sec.fields.map(f => {
-                    // Şartlı alanlar için kontrol
-                    if (f.dependsOn) {
-                      const [depKey, depVal] = f.dependsOn.split(':');
-                      if (parsedData[depKey] !== depVal) return null;
-                    }
-                    
-                    return (
-                      <Grid size={{ xs: 12, sm: 6 }} key={f.key}>
-                        <Box sx={{ backgroundColor: '#f8f9fa', p: 2, borderRadius: 1, height: '100%' }}>
-                          <Typography variant="caption" sx={{ color: '#7f8c8d', fontWeight: 'bold', display: 'block', mb: 0.5 }}>
-                            {f.label}
-                          </Typography>
-                          <Typography variant="body1" sx={{ color: parsedData[f.key] ? '#2c3e50' : '#bdc3c7', fontWeight: 500 }}>
-                            {parsedData[f.key] || 'Boş bırakılmış'}
-                          </Typography>
-                        </Box>
-                      </Grid>
-                    );
-                  })}
-                </Grid>
-              </Box>
-            ))}
-          </Box>
-        ) : (
-          /* FALLBACK: Şema Yoksa Basit Liste Görünümü */
-          <Box>
-            <Typography variant="h6" sx={{ color: '#2c3e50', mb: 2, borderBottom: '2px solid #ecf0f1', pb: 1 }}>
-              Form Yanıtları (Varsayılan Görünüm)
+      {/* YENİ: PDF çıktısına dahil edilecek alanı pdfRef ile sarmalıyoruz */}
+      <div ref={pdfRef}>
+        <Paper elevation={3} sx={{ p: { xs: 3, md: 5 }, borderRadius: 2 }}>
+          
+          <Box sx={{ borderBottom: '2px solid #34495e', pb: 2, mb: 2 }}>
+            <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#2c3e50' }}>
+              {/* TIP DÜZELTMESİ: (schema as any)?.title diyerek TypeScript'in hata vermesini engelliyoruz */}
+              {(schema as any)?.title || selectedForm.formTitle || "Vardiya Raporu"}
             </Typography>
-            <Grid container spacing={3}>
-              {Object.entries(parsedData).map(([key, value]) => (
-                <Grid size={{ xs: 12, sm: 6 }} key={key}>
-                  <Box sx={{ backgroundColor: '#f8f9fa', p: 2, borderRadius: 1, height: '100%' }}>
-                    <Typography variant="caption" sx={{ color: '#7f8c8d', fontWeight: 'bold', display: 'block', mb: 0.5, textTransform: 'capitalize' }}>
-                      {key.replace(/_/g, ' ')}
-                    </Typography>
-                    <Typography variant="body1" sx={{ color: value ? '#2c3e50' : '#bdc3c7', fontWeight: 500 }}>
-                      {value ? String(value) : 'Boş bırakılmış'}
-                    </Typography>
-                  </Box>
-                </Grid>
-              ))}
-            </Grid>
+            <Typography variant="body2" sx={{ color: '#7f8c8d' }}>
+              Birim: {selectedForm.unitName || currentUser.unit} | Tarih: {selectedForm.recordDate ? new Date(selectedForm.recordDate).toLocaleString('tr-TR') : new Date().toLocaleString('tr-TR')}
+            </Typography>
           </Box>
-        )}
 
-      </Paper>
+          {/* DÜZELTME 4: Güvenlik Ağı (Şema varsa normal çiz, yoksa Fallback tablo çiz) */}
+          {schema && schema.sections && schema.sections.length > 0 ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {schema.sections.map((sec, idx) => (
+                <Box key={idx}>
+                  <Typography variant="h6" sx={{ color: '#2c3e50', mb: 2, borderBottom: '2px solid #ecf0f1', pb: 1 }}>
+                    {sec.title}
+                  </Typography>
+                  
+                  {/* MUI v6 Grid Kullanımı */}
+                  <Grid container spacing={3}>
+                    {sec.fields.map(f => {
+                      // Şartlı alanlar için kontrol
+                      if (f.dependsOn) {
+                        const [depKey, depVal] = f.dependsOn.split(':');
+                        if (parsedData[depKey] !== depVal) return null;
+                      }
+                      
+                      return (
+                        <Grid size={{ xs: 12, sm: 6 }} key={f.key}>
+                          <Box sx={{ backgroundColor: '#f8f9fa', p: 2, borderRadius: 1, height: '100%' }}>
+                            <Typography variant="caption" sx={{ color: '#7f8c8d', fontWeight: 'bold', display: 'block', mb: 0.5 }}>
+                              {f.label}
+                            </Typography>
+                            <Typography variant="body1" sx={{ color: parsedData[f.key] ? '#2c3e50' : '#bdc3c7', fontWeight: 500 }}>
+                              {parsedData[f.key] || 'Boş bırakılmış'}
+                            </Typography>
+                          </Box>
+                        </Grid>
+                      );
+                    })}
+                  </Grid>
+                </Box>
+              ))}
+            </Box>
+          ) : (
+            /* FALLBACK: Şema Yoksa Basit Liste Görünümü */
+            <Box>
+              <Typography variant="h6" sx={{ color: '#2c3e50', mb: 2, borderBottom: '2px solid #ecf0f1', pb: 1 }}>
+                Form Yanıtları (Varsayılan Görünüm)
+              </Typography>
+              <Grid container spacing={3}>
+                {Object.entries(parsedData).map(([key, value]) => (
+                  <Grid size={{ xs: 12, sm: 6 }} key={key}>
+                    <Box sx={{ backgroundColor: '#f8f9fa', p: 2, borderRadius: 1, height: '100%' }}>
+                      <Typography variant="caption" sx={{ color: '#7f8c8d', fontWeight: 'bold', display: 'block', mb: 0.5, textTransform: 'capitalize' }}>
+                        {key.replace(/_/g, ' ')}
+                      </Typography>
+                      <Typography variant="body1" sx={{ color: value ? '#2c3e50' : '#bdc3c7', fontWeight: 500 }}>
+                        {value ? String(value) : 'Boş bırakılmış'}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                ))}
+              </Grid>
+            </Box>
+          )}
+
+        </Paper>
+      </div>
     </Box>
   );
 }

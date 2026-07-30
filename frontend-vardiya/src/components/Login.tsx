@@ -83,11 +83,8 @@ export default function Login({ onLoginSuccess }: LoginProps) {
             <SatelliteAltIcon sx={{ color: 'white', fontSize: 32 }} />
           </Box>
 
-          <Typography variant="h5" component="h1" sx={{ fontWeight: 'bold', color: '#2c3e50', textAlign: 'center', mb: 1 }}>
-            Uydu Hub Operasyonları
-          </Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: 'center', mb: 4 }}>
-            Hızlı Giriş Paneli (Test Modu)
+          <Typography variant="h5" component="h1" sx={{ fontWeight: 'bold', color: '#2c3e50', textAlign: 'center', mb: 3 }}>
+            Vardiya Devir Uygulaması
           </Typography>
 
           {error && <Alert severity="error" sx={{ width: '100%', mb: 3, borderRadius: 2 }}>{error}</Alert>}
