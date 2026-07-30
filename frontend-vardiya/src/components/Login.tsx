@@ -7,6 +7,7 @@ import EngineeringIcon from '@mui/icons-material/Engineering';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import type { CurrentUser } from '../types';
 import { apiFetch } from '../api';
+import EarthScene from '../three/EarthScene';
 
 interface LoginProps {
   onLoginSuccess: (user: CurrentUser) => void;
@@ -60,60 +61,100 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   };
 
   return (
-    <Box sx={{ width: '100%', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f4f6f8' }}>
-      <Card elevation={4} sx={{ maxWidth: 560, width: '100%', borderRadius: 3, mx: 2 }}>
-        <CardContent sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+    <Box sx={{ position: 'relative', width: '100%', height: '100vh', overflow: 'hidden', backgroundColor: '#02030a' }}>
+      {/* Arka planda: yıldız alanı, Dünya ve yörüngedeki uydular (Three.js) */}
+      <EarthScene />
 
-          <Box sx={{ backgroundColor: 'primary.main', p: 2, borderRadius: '50%', display: 'flex', mb: 2, boxShadow: '0 4px 10px rgba(25, 118, 210, 0.3)' }}>
-            <SatelliteAltIcon sx={{ color: 'white', fontSize: 32 }} />
-          </Box>
+      {/* Ön planda: giriş paneli, ekranın sol tarafına kaydırılmış */}
+      <Box
+        sx={{
+          position: 'relative',
+          zIndex: 1,
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: { xs: 'center', md: 'flex-start' },
+          pl: { xs: 2, md: '6vw' },
+          pr: 2
+        }}
+      >
+        <Card
+          elevation={0}
+          sx={{
+            maxWidth: 460,
+            width: '100%',
+            borderRadius: 4,
+            backgroundColor: 'rgba(13, 20, 38, 0.55)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            boxShadow: '0 8px 40px rgba(0,0,0,0.5), 0 0 60px rgba(38,131,255,0.08)'
+          }}
+        >
+          <CardContent sx={{ p: { xs: 3, md: 4 }, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
 
-          <Typography variant="h5" component="h1" sx={{ fontWeight: 'bold', color: '#2c3e50', textAlign: 'center', mb: 4 }}>
-            Vardiya Devir Uygulaması
-          </Typography>
+            <Box
+              sx={{
+                background: 'linear-gradient(135deg, #1976d2 0%, #22d3ee 100%)',
+                p: 1.75,
+                borderRadius: '50%',
+                display: 'flex',
+                mb: 2,
+                boxShadow: '0 4px 20px rgba(34, 211, 238, 0.35)'
+              }}
+            >
+              <SatelliteAltIcon sx={{ color: 'white', fontSize: 28 }} />
+            </Box>
 
-          {error && <Alert severity="error" sx={{ width: '100%', mb: 3, borderRadius: 2 }}>{error}</Alert>}
+            <Typography variant="h5" component="h1" sx={{ fontWeight: 'bold', color: '#fff', textAlign: 'center', mb: 0.5 }}>
+              Vardiya Devir Uygulaması
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.55)', textAlign: 'center', mb: 3.5 }}>
+              Uydu Kontrol Vardiya Sistemi
+            </Typography>
 
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, width: '100%' }}>
-            {LOGIN_USERS.map(({ username, unit, roleLabel, icon: Icon, color }) => (
-              <Button
-                key={username}
-                variant="contained"
-                color={color}
-                onClick={() => handleLogin(username)}
-                disabled={loadingUser !== null}
-                sx={{
-                  aspectRatio: '1 / 1',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  gap: 1,
-                  borderRadius: 3,
-                  boxShadow: 2,
-                  '&:hover': { boxShadow: 5 }
-                }}
-              >
-                {loadingUser === username ? (
-                  <CircularProgress size={36} color="inherit" />
-                ) : (
-                  <Icon sx={{ fontSize: 40 }} />
-                )}
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', lineHeight: 1.2 }}>
-                  {roleLabel}
-                </Typography>
-                <Typography variant="body2" sx={{ opacity: 0.85, lineHeight: 1 }}>
-                  {unit}
-                </Typography>
-                <Typography variant="caption" sx={{ opacity: 0.7, lineHeight: 1 }}>
-                  ({username})
-                </Typography>
-              </Button>
-            ))}
-          </Box>
+            {error && <Alert severity="error" sx={{ width: '100%', mb: 3, borderRadius: 2 }}>{error}</Alert>}
 
-        </CardContent>
-      </Card>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5, width: '100%' }}>
+              {LOGIN_USERS.map(({ username, unit, roleLabel, icon: Icon, color }) => (
+                <Button
+                  key={username}
+                  variant="contained"
+                  color={color}
+                  onClick={() => handleLogin(username)}
+                  disabled={loadingUser !== null}
+                  sx={{
+                    aspectRatio: '1 / 1',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    gap: 0.75,
+                    borderRadius: 3,
+                    boxShadow: 2,
+                    '&:hover': { boxShadow: 5 }
+                  }}
+                >
+                  {loadingUser === username ? (
+                    <CircularProgress size={32} color="inherit" />
+                  ) : (
+                    <Icon sx={{ fontSize: 34 }} />
+                  )}
+                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold', lineHeight: 1.2 }}>
+                    {roleLabel}
+                  </Typography>
+                  <Typography variant="caption" sx={{ opacity: 0.85, lineHeight: 1 }}>
+                    {unit}
+                  </Typography>
+                  <Typography variant="caption" sx={{ opacity: 0.7, lineHeight: 1, fontSize: '0.65rem' }}>
+                    ({username})
+                  </Typography>
+                </Button>
+              ))}
+            </Box>
+
+          </CardContent>
+        </Card>
+      </Box>
     </Box>
   );
 }
