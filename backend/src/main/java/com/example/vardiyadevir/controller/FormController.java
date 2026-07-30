@@ -7,26 +7,39 @@ import com.example.vardiyadevir.entity.FormDefinition;
 import com.example.vardiyadevir.entity.ShiftForm;
 import com.example.vardiyadevir.repository.FormDefinitionRepository;
 import com.example.vardiyadevir.repository.ShiftFormRepository;
+import com.example.vardiyadevir.config.FormSchemaProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.ZonedDateTime;
+import java.util.List; 
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/forms")
+@CrossOrigin
 @RequiredArgsConstructor
 public class FormController {
 
     private final FormDefinitionRepository formDefinitionRepository;
     private final ShiftFormRepository shiftFormRepository;
+    private final FormSchemaProvider schemaProvider;
 
-    @GetMapping("/schema/{menuKey}")
-    public ResponseEntity<FormDefinition> getFormSchema(@PathVariable String menuKey) {
-        return formDefinitionRepository.findByMenuKeyAndIsActiveTrue(menuKey)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    // 1. DÜZELTME: Eski veritabanı tabanlı (/schema/{menuKey}) ile yeni provider 
+    // tabanlı metotlar birbiriyle çakışıyordu. Sadece yeni Provider yapısı bırakıldı.
+    @GetMapping("/schema/{formId}")
+    public ResponseEntity<?> getSchema(@PathVariable String formId) {
+        String schemaJson = schemaProvider.getSchemaForForm(formId);
+        return ResponseEntity.ok(Map.of("schemaJson", schemaJson));
+    }
+
+    // 2. DÜZELTME: Sınıf seviyesinde zaten "@RequestMapping("/api/forms")" olduğu için, 
+    // metodun başındaki "/api/forms" kısmı silindi. (Yoksa adres /api/forms/api/forms/templates olurdu)
+    @GetMapping("/templates")
+    public ResponseEntity<?> getTemplates(@RequestParam String unit) {
+        return ResponseEntity.ok(schemaProvider.getTemplatesForUnit(unit));
     }
 
     @PostMapping("/submit")
@@ -41,7 +54,6 @@ public class FormController {
             shiftForm.setStatus("PENDING_MANAGER_APPROVAL"); 
             shiftForm.setRecordDate(ZonedDateTime.now()); 
             
-            // ObjectMapper'ı doğrudan burada manuel olarak oluşturuyoruz
             ObjectMapper mapper = new ObjectMapper();
             String jsonFormData = mapper.writeValueAsString(request.getFormData());
             shiftForm.setFormData(jsonFormData);
@@ -56,16 +68,18 @@ public class FormController {
         }
     }
 
-    // YENİ EKLENEN KISIM: Veritabanındaki tüm formları listeler
     @GetMapping("/list")
-    public ResponseEntity<java.util.List<ShiftFormResponse>> getAllForms() {
-        java.util.List<ShiftFormResponse> responses = shiftFormRepository.findByIsDeletedFalse()
+    public ResponseEntity<List<ShiftFormResponse>> getAllForms() {
+        List<ShiftFormResponse> responses = shiftFormRepository.findByIsDeletedFalse()
                 .stream()
                 .map(form -> {
                     ShiftFormResponse res = new ShiftFormResponse();
                     res.setId(form.getId());
                     res.setFormTitle(form.getFormDefinition().getTitle());
-                    res.setUnitName(form.getUnit().getName());
+                    
+                    // DÜZELTME: Unit bir nesne olduğu için .getName() geri eklendi
+                    res.setUnitName(form.getUnit() != null ? form.getUnit().getName() : null); 
+                    
                     res.setStatus(form.getStatus());
                     res.setRecordDate(form.getRecordDate());
                     return res;
@@ -74,14 +88,16 @@ public class FormController {
         return ResponseEntity.ok(responses);
     }
 
-    // YENİ EKLENEN KISIM: ID'ye göre form detayını getirir
     @GetMapping("/{id}")
     public ResponseEntity<ShiftFormDetailResponse> getFormById(@PathVariable Long id) {
         return shiftFormRepository.findById(id).map(form -> {
             ShiftFormDetailResponse res = new ShiftFormDetailResponse();
             res.setId(form.getId());
             res.setFormTitle(form.getFormDefinition().getTitle());
-            res.setUnitName(form.getUnit().getName());
+            
+            // DÜZELTME: Unit bir nesne olduğu için .getName() geri eklendi
+            res.setUnitName(form.getUnit() != null ? form.getUnit().getName() : null); 
+            
             res.setStatus(form.getStatus());
             res.setRecordDate(form.getRecordDate());
             res.setFormData(form.getFormData());
@@ -94,7 +110,6 @@ public class FormController {
         return shiftFormRepository.findById(id).map(form -> {
             String currentStatus = form.getStatus();
             
-            // Artık sadece Amir Onayı -> Tamamlandı geçişi var
             if ("PENDING_MANAGER_APPROVAL".equals(currentStatus)) {
                 form.setStatus("COMPLETED");
             } else {

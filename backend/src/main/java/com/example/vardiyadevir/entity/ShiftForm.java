@@ -41,7 +41,7 @@ public class ShiftForm {
     private User observerUser;   // Gözlemci
 
     @Column(nullable = false, length = 30)
-    private String status = "DRAFT"; // DRAFT, PENDING_TRANSFEREE, PENDING_OBSERVER, COMPLETED
+    private String status = "DRAFT"; // DRAFT, PENDING_MANAGER_APPROVAL, COMPLETED vb.
 
     @Column(name = "is_read")
     private Boolean isRead = false;
@@ -71,4 +71,15 @@ public class ShiftForm {
     
     @Column(name = "deleted_by")
     private Long deletedBy;
+
+    // YENİ EKLENDİ: Veritabanına yazılmadan hemen önce otomatik tarih ataması yapar
+    @PrePersist
+    protected void onCreate() {
+        if (this.transactionDate == null) {
+            this.transactionDate = ZonedDateTime.now();
+        }
+        if (this.recordDate == null) {
+            this.recordDate = ZonedDateTime.now();
+        }
+    }
 }
