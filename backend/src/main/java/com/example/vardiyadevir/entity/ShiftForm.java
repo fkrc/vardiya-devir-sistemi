@@ -41,7 +41,12 @@ public class ShiftForm {
     private User observerUser;   // Gözlemci
 
     @Column(nullable = false, length = 30)
-    private String status = "DRAFT"; // DRAFT, PENDING_MANAGER_APPROVAL, COMPLETED vb.
+    private String status = "DRAFT"; // DRAFT, PENDING_MANAGER_APPROVAL, REJECTED, COMPLETED vb.
+
+    // Yönetici formu reddettiğinde belirttiği gerekçe. Form tekrar onaya
+    // gönderildiğinde (bkz. FormController#resubmitForm) temizlenir.
+    @Column(name = "rejection_reason", columnDefinition = "text")
+    private String rejectionReason;
 
     @Column(name = "is_read")
     private Boolean isRead = false;

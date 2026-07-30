@@ -16,13 +16,6 @@ import java.util.Arrays;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
-
-    // NOT: Sistemde henüz gerçek bir oturum/token mekanizması (JWT vb.) yok.
-    // /api/forms/** endpoint'leri Spring Security seviyesinde açık bırakılıyor,
-    // ancak FormController içinde her istekte "X-User-Id" header'ı ile DB'den
-    // kullanıcı çözülüp rol/birim kontrolü uygulama katmanında zorunlu kılınıyor
-    // (bkz. FormController). İleride bu header yerine gerçek bir JWT filtresi
-    // eklenmesi önerilir.
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http

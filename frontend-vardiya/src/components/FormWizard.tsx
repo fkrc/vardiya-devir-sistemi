@@ -18,23 +18,43 @@ import {
   Alert,
   Tooltip,
   IconButton,
-  InputAdornment
+  InputAdornment,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
+import ImageIcon from '@mui/icons-material/Image';
+import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import type { Field, FieldHistoryEntry, FormSchema, Section } from '../types';
 import { apiFetchJson } from '../api';
 
 interface FormWizardProps {
   formId: string;
   onCancel: () => void;
-  onSuccess: (formData: Record<string, string>) => void;
+  onSuccess: (formData: Record<string, string>, files: File[]) => void;
+  initialData?: Record<string, string>;
+  submitLabel?: string;
+  cancelLabel?: string;
 }
 
 const MAX_FIELDS_PER_STEP = 2;
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // Backend ile aynı limit (10MB/dosya)
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 // Bir alanın geçmiş değerlerinin (rehber verisi) yüklenme durumu.
 interface FieldHistoryState {
@@ -43,12 +63,15 @@ interface FieldHistoryState {
   error?: string;
 }
 
-export default function FormWizard({ formId, onCancel, onSuccess }: FormWizardProps) {
+export default function FormWizard({ formId, onCancel, onSuccess, initialData, submitLabel, cancelLabel }: FormWizardProps) {
   const [rawSchema, setRawSchema] = useState<FormSchema | null>(null);
   const [paginatedSections, setPaginatedSections] = useState<Section[]>([]);
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
 
   // Alan bazlı "geçmiş girişler" (rehber) verisi. Her alan ilk kez hover
   // edildiğinde lazy olarak yüklenir ve burada key: fieldKey olarak cache'lenir.
@@ -111,23 +134,44 @@ export default function FormWizard({ formId, onCancel, onSuccess }: FormWizardPr
         setPaginatedSections(fixedSections);
         setRawSchema(parsed);
         setCurrentStep(0);
-        setFormData({});
+        setFormData(initialData || {});
         setFieldHistory({});
       })
       .catch(err => {
         console.error("Şema yüklenirken hata:", err);
         setError(err.message);
       });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formId]);
 
   const handleComplete = () => {
-    onSuccess(formData); // Veriyi doğrudan App.tsx'teki sepete yolla
+    onSuccess(formData, attachedFiles); // Veriyi (ve varsa ekleri) doğrudan App.tsx'teki sepete yolla
   };
 
   const handleCancelClick = () => {
-    if (window.confirm("Bu forma ait kaydedilmemiş veriler silinecek. Çıkmak istediğinize emin misiniz?")) {
-      onCancel();
+    setCancelDialogOpen(true);
+  };
+
+  const handleConfirmCancel = () => {
+    setCancelDialogOpen(false);
+    onCancel();
+  };
+
+  const handleFilesSelected = (fileList: FileList | null) => {
+    if (!fileList) return;
+    const incoming = Array.from(fileList);
+    const oversized = incoming.filter(f => f.size > MAX_FILE_SIZE_BYTES);
+    if (oversized.length > 0) {
+      setFileError(`${oversized.map(f => f.name).join(', ')} dosyası 10MB sınırını aşıyor ve eklenemedi.`);
+    } else {
+      setFileError(null);
     }
+    const accepted = incoming.filter(f => f.size <= MAX_FILE_SIZE_BYTES);
+    setAttachedFiles(prev => [...prev, ...accepted]);
+  };
+
+  const handleRemoveFile = (index: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   if (error) {
@@ -183,27 +227,28 @@ export default function FormWizard({ formId, onCancel, onSuccess }: FormWizardPr
             return (
               <Box key={field.key}>
                 {/* 1. ANA SORU */}
-                <FormControl fullWidth required={field.required} component="fieldset">
+                <FormControl fullWidth component="fieldset">
                   
                   {field.type === 'text' || field.type === 'number' ? (
                     <TextField
                       fullWidth
                       type={field.type}
                       label={field.label}
-                      required={field.required}
                       value={formData[field.key] || ''}
                       onChange={(e) => setFormData(p => ({ ...p, [field.key]: e.target.value }))}
                       variant="outlined"
-                      InputProps={{
-                        endAdornment: (
-                          <InputAdornment position="end">
-                            <FieldHistoryButton
-                              field={field}
-                              historyState={fieldHistory[field.key]}
-                              onOpen={() => loadFieldHistory(field.key)}
-                            />
-                          </InputAdornment>
-                        )
+                      slotProps={{
+                        input: {
+                          endAdornment: (
+                            <InputAdornment position="end">
+                              <FieldHistoryButton
+                                field={field}
+                                historyState={fieldHistory[field.key]}
+                                onOpen={() => loadFieldHistory(field.key)}
+                              />
+                            </InputAdornment>
+                          )
+                        }
                       }}
                     />
                   ) : field.type === 'textarea' ? (
@@ -212,27 +257,28 @@ export default function FormWizard({ formId, onCancel, onSuccess }: FormWizardPr
                       multiline
                       rows={4}
                       label={field.label}
-                      required={field.required}
                       value={formData[field.key] || ''}
                       onChange={(e) => setFormData(p => ({ ...p, [field.key]: e.target.value }))}
                       variant="outlined"
-                      InputProps={{
-                        endAdornment: (
-                          <InputAdornment position="end" sx={{ alignSelf: 'flex-start', mt: 1 }}>
-                            <FieldHistoryButton
-                              field={field}
-                              historyState={fieldHistory[field.key]}
-                              onOpen={() => loadFieldHistory(field.key)}
-                            />
-                          </InputAdornment>
-                        )
+                      slotProps={{
+                        input: {
+                          endAdornment: (
+                            <InputAdornment position="end" sx={{ alignSelf: 'flex-start', mt: 1 }}>
+                              <FieldHistoryButton
+                                field={field}
+                                historyState={fieldHistory[field.key]}
+                                onOpen={() => loadFieldHistory(field.key)}
+                              />
+                            </InputAdornment>
+                          )
+                        }
                       }}
                     />
                   ) : field.type === 'radio' && field.options ? (
                     <>
                       <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                         <FormLabel sx={{ fontWeight: 500, color: 'text.primary' }}>
-                          {field.label} {field.required && <span style={{color: '#ef4444'}}>*</span>}
+                          {field.label}
                         </FormLabel>
                         <FieldHistoryButton
                           field={field}
@@ -253,7 +299,7 @@ export default function FormWizard({ formId, onCancel, onSuccess }: FormWizardPr
                     <>
                       <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                         <FormLabel sx={{ fontWeight: 500, color: 'text.primary' }}>
-                          {field.label} {field.required && <span style={{color: '#ef4444'}}>*</span>}
+                          {field.label}
                         </FormLabel>
                         <FieldHistoryButton
                           field={field}
@@ -303,16 +349,18 @@ export default function FormWizard({ formId, onCancel, onSuccess }: FormWizardPr
                           label={childField.label}
                           value={formData[childField.key] || ''}
                           onChange={(e) => setFormData(p => ({ ...p, [childField.key]: e.target.value }))}
-                          InputProps={{
-                            endAdornment: (
-                              <InputAdornment position="end">
-                                <FieldHistoryButton
-                                  field={childField}
-                                  historyState={fieldHistory[childField.key]}
-                                  onOpen={() => loadFieldHistory(childField.key)}
-                                />
-                              </InputAdornment>
-                            )
+                          slotProps={{
+                            input: {
+                              endAdornment: (
+                                <InputAdornment position="end">
+                                  <FieldHistoryButton
+                                    field={childField}
+                                    historyState={fieldHistory[childField.key]}
+                                    onOpen={() => loadFieldHistory(childField.key)}
+                                  />
+                                </InputAdornment>
+                              )
+                            }
                           }}
                         />
                       </Box>
@@ -325,6 +373,78 @@ export default function FormWizard({ formId, onCancel, onSuccess }: FormWizardPr
           })}
         </Box>
 
+        {/* DOSYA EKLEME BÖLÜMÜ: Formun en sonunda, gerektiğinde belge/görsel eklenebilir */}
+        {currentStep === paginatedSections.length - 1 && (
+          <>
+            <Divider sx={{ my: 4 }} />
+            <Box>
+              <Typography variant="h6" sx={{ color: '#2c3e50', mb: 0.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <AttachFileIcon fontSize="small" color="primary" />
+                Dosya Ekleme
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Gerekli görüyorsanız, bu formla ilgili belge veya fotoğrafları ekleyebilirsiniz (opsiyonel, dosya başına en fazla 10MB).
+              </Typography>
+
+              <Button
+                component="label"
+                variant="outlined"
+                startIcon={<CloudUploadIcon />}
+                sx={{ borderStyle: 'dashed', py: 1.5, px: 3 }}
+              >
+                Dosya Seç
+                <input
+                  type="file"
+                  hidden
+                  multiple
+                  onChange={(e) => {
+                    handleFilesSelected(e.target.files);
+                    e.target.value = '';
+                  }}
+                />
+              </Button>
+
+              {fileError && <Alert severity="warning" sx={{ mt: 2 }}>{fileError}</Alert>}
+
+              {attachedFiles.length > 0 && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 2 }}>
+                  {attachedFiles.map((file, idx) => (
+                    <Box
+                      key={`${file.name}-${idx}`}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.5,
+                        p: 1.5,
+                        borderRadius: 1,
+                        backgroundColor: '#f8f9fa',
+                        border: '1px solid #eef1f4'
+                      }}
+                    >
+                      {file.type.startsWith('image/') ? (
+                        <ImageIcon color="primary" />
+                      ) : (
+                        <InsertDriveFileIcon color="action" />
+                      )}
+                      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {file.name}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {formatFileSize(file.size)}
+                        </Typography>
+                      </Box>
+                      <IconButton size="small" onClick={() => handleRemoveFile(idx)} aria-label={`${file.name} dosyasını kaldır`}>
+                        <DeleteOutlineIcon fontSize="small" color="error" />
+                      </IconButton>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+            </Box>
+          </>
+        )}
+
         <Divider sx={{ my: 4 }} />
 
         {/* ALT BUTONLAR */}
@@ -335,7 +455,7 @@ export default function FormWizard({ formId, onCancel, onSuccess }: FormWizardPr
             startIcon={<CancelIcon />}
             onClick={handleCancelClick}
           >
-            Kataloğa Dön
+            {cancelLabel || 'Kataloğa Dön'}
           </Button>
 
           <Box sx={{ display: 'flex', gap: 2 }}>
@@ -357,7 +477,7 @@ export default function FormWizard({ formId, onCancel, onSuccess }: FormWizardPr
                 onClick={handleComplete}
                 sx={{ px: 3 }}
               >
-                Dolduruldu Olarak İşaretle
+                {submitLabel || 'Dolduruldu Olarak İşaretle'}
               </Button>
             ) : (
               <Button 
@@ -374,6 +494,24 @@ export default function FormWizard({ formId, onCancel, onSuccess }: FormWizardPr
         </Box>
 
       </Paper>
+
+      <Dialog open={cancelDialogOpen} onClose={() => setCancelDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <WarningAmberIcon color="warning" />
+          Formdan Çıkılsın mı?
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            Bu forma ait kaydedilmemiş veriler silinecek. Çıkmak istediğinize emin misiniz?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setCancelDialogOpen(false)}>Vazgeç</Button>
+          <Button variant="contained" color="error" startIcon={<CancelIcon />} onClick={handleConfirmCancel}>
+            Evet, Çık
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

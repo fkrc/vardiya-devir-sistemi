@@ -25,7 +25,10 @@ export function getCurrentUserId(): number | null {
 
 export async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
   const headers = new Headers(options.headers || {});
-  if (options.body && !headers.has('Content-Type')) {
+  // FormData gövdelerde Content-Type'ı elle set ETMEMEK gerekir: tarayıcı,
+  // multipart sınırını (boundary) kendisi ekler; burada zorla 'application/json'
+  // basmak dosya yüklemeli isteklerin (form ekleri) sunucuda parse edilememesine yol açar.
+  if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
   if (currentUserId != null) {

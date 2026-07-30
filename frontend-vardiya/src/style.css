@@ -11,21 +11,14 @@
 body {
     background-color: #f4f6f8;
     color: #2c3e50;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh; /* Ekranın %100'ü */
-    overflow: hidden; /* Dış sayfanın kaymasını KESİNLİKLE engeller, App hissi verir */
+    min-height: 100vh;
+    overflow-y: auto; /* İçerik viewport'tan taşınca sayfanın kaymasına izin verir */
 }
 
 /* Ana Uygulama Sarıcısı */
 #root {
     width: 100%;
-    height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 20px;
+    min-height: 100vh;
 }
 
 /* --- KUTU TASARIMLARI (Sabit Boyut ve Web App Hissi) --- */

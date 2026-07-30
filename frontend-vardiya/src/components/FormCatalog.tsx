@@ -44,15 +44,12 @@ export default function FormCatalog({ unit, onSelectForm, completedForms, onSubm
       })
       .catch(err => {
         console.error(err);
-        // NOT: Bu fallback sadece backend gerçekten ulaşılamaz durumdaysa devreye
-        // girer ve UKOM'a özel örnek veridir; UHGM için yanıltıcı olabileceğinden
-        // burada olduğunu kullanıcıya da bir uyarı olarak belirtmek daha doğru olurdu.
-        // Şimdilik geliştirme kolaylığı için korunuyor.
+
         setTemplates([
-          { id: 1, menuKey: 't3a', title: 'T3A Shift Handover Form' },
-          { id: 2, menuKey: 't4a', title: 'T4A Shift Handover Form' },
-          { id: 3, menuKey: 't4b', title: 'T4B Shift Handover Form' },
-          { id: 4, menuKey: 't5a', title: 'T5A Shift Handover Form' },
+          { id: 1, menuKey: 't3a', title: 'T3A Vardiya Devir Formu' },
+          { id: 2, menuKey: 't4a', title: 'T4A Vardiya Devir Formu' },
+          { id: 3, menuKey: 't4b', title: 'T4B Vardiya Devir Formu' },
+          { id: 4, menuKey: 't5a', title: 'T5A Vardiya Devir Formu' },
         ]);
         setLoading(false);
       });
@@ -144,8 +141,6 @@ export default function FormCatalog({ unit, onSelectForm, completedForms, onSubm
           );
         })}
       </Grid>
-
-      {/* Sepet / Toplu Gönderim Çubuğu (Sadece doldurulmuş form varsa görünür) */}
       {hasDrafts && (
         <Paper
           elevation={4}

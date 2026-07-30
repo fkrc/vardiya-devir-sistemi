@@ -1,24 +1,21 @@
 import { useState } from 'react';
-import { 
-  ThemeProvider, 
-  createTheme, 
-  CssBaseline, 
-  AppBar, 
-  Toolbar, 
-  Typography, 
-  Box, 
-  Container, 
-  Chip, 
+import {
+  ThemeProvider,
+  createTheme,
+  CssBaseline,
+  Typography,
+  Box,
+  Container,
   Button,
   Snackbar,
   Alert
 } from '@mui/material';
-import LogoutIcon from '@mui/icons-material/Logout';
 import type { CurrentUser } from './types';
 import { apiFetch, setCurrentUserId } from './api';
 import './style.css';
 
 import Login from './components/Login';
+import Header from './components/Header';
 import Dashboard from './components/Dashboard';
 import FormCatalog from './components/FormCatalog';
 import FormWizard from './components/FormWizard';
@@ -50,7 +47,8 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [selectedFormId, setSelectedFormId] = useState<number | null>(null);
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
-  const [drafts, setDrafts] = useState<Record<string, any>>({});
+  const [drafts, setDrafts] = useState<Record<string, { formData: Record<string, string>; files: File[] }>>({});
+  const [editingForm, setEditingForm] = useState<{ id: number; menuKey: string; initialData: Record<string, string> } | null>(null);
 
   // YENİ: Global Bildirim (Snackbar) State'i
   const [snackbar, setSnackbar] = useState({
@@ -77,16 +75,16 @@ export default function App() {
 
  const handleBatchSubmit = async () => {
     try {
-      const promises = Object.entries(drafts).map(([formId, formData]) => {
-        const payload = {
-          menuKey: formId,
-          formData,
-          userId: currentUser?.id
-        };
+      const promises = Object.entries(drafts).map(([menuKey, draft]) => {
+        const body = new FormData();
+        body.append('menuKey', menuKey);
+        body.append('formData', JSON.stringify(draft.formData));
+        body.append('userId', String(currentUser?.id));
+        draft.files.forEach(file => body.append('files', file));
 
         return apiFetch('/api/forms/submit', {
           method: 'POST',
-          body: JSON.stringify(payload)
+          body
         }).then(res => {
           if (!res.ok) throw new Error("Backend'e kayıt başarısız oldu.");
           return res;
@@ -136,22 +134,7 @@ export default function App() {
       <CssBaseline />
       <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         
-        <AppBar position="sticky" elevation={1} sx={{ backgroundColor: '#fff', color: '#333' }}>
-          <Toolbar>
-            <Typography variant="h6" component="div" sx={{ flexGrow: 1, color: 'primary.main' }}>
-              Uydu Kontrol Vardiya Sistemi
-            </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Chip label={currentUser.unit || 'BİLİNMİYOR'} size="small" color="primary" variant="outlined" />
-              <Typography variant="body2" sx={{ fontWeight: '500' }}>
-                {currentUser.fullName} ({currentUser.role})
-              </Typography>
-              <Button color="error" size="small" endIcon={<LogoutIcon />} onClick={handleLogout}>
-                Çıkış
-              </Button>
-            </Box>
-          </Toolbar>
-        </AppBar>
+        <Header currentUser={currentUser} onLogout={handleLogout} />
 
         <Container component="main" maxWidth="lg" sx={{ flexGrow: 1, py: 4, display: 'flex', flexDirection: 'column' }}>
           
@@ -176,17 +159,51 @@ export default function App() {
           )}
 
           {currentView === 'wizard' && (
-            activeTemplateId ? (
-              <FormWizard 
-                formId={activeTemplateId} 
-                onCancel={() => setCurrentView('catalog')} 
-                onSuccess={(formData) => {
-                  setDrafts(prev => ({ ...prev, [activeTemplateId]: formData }));
+            editingForm ? (
+              <FormWizard
+                formId={editingForm.menuKey}
+                initialData={editingForm.initialData}
+                submitLabel="Tekrar Onaya Gönder"
+                cancelLabel="Vazgeç"
+                onCancel={() => {
+                  setEditingForm(null);
+                  setCurrentView('dashboard');
+                }}
+                onSuccess={async (formData, files) => {
+                  try {
+                    const body = new FormData();
+                    body.append('formData', JSON.stringify(formData));
+                    files.forEach(file => body.append('files', file));
+
+                    const res = await apiFetch(`/api/forms/${editingForm.id}`, {
+                      method: 'PUT',
+                      body
+                    });
+                    if (!res.ok) {
+                      const text = await res.text().catch(() => '');
+                      throw new Error(text || "Form güncellenirken bir hata oluştu.");
+                    }
+                    showNotification('Form güncellendi ve tekrar Yönetici onayına gönderildi!', 'success');
+                  } catch (err: any) {
+                    console.error(err);
+                    showNotification(err.message || 'Form güncellenirken bir hata oluştu!', 'error');
+                  } finally {
+                    setEditingForm(null);
+                    setCurrentView('dashboard');
+                  }
+                }}
+              />
+            ) : activeTemplateId ? (
+              <FormWizard
+                formId={activeTemplateId}
+                onCancel={() => setCurrentView('catalog')}
+                onSuccess={(formData, files) => {
+                  setDrafts(prev => ({ ...prev, [activeTemplateId]: { formData, files } }));
                   setActiveTemplateId(null);
-                  setCurrentView('catalog'); 
+                  setCurrentView('catalog');
                   // Sepete ekleme bildirimi
                   showNotification('Form taslağı başarıyla sepete eklendi!', 'success');
-                }} 
+                }}
               />
             ) : (
               <Box sx={{ mt: 5, textAlign: 'center' }}>
@@ -204,9 +221,12 @@ export default function App() {
               onBack={() => setCurrentView('dashboard')}
               onNotify={showNotification}
               onSuccess={() => {
+                // Bildirim FormDetail içinde (onayla/reddet'e özel mesajla) zaten gösterildi.
                 setCurrentView('dashboard');
-                // Onaylama bildirimi
-                showNotification('Form başarıyla Yönetici tarafından onaylandı!', 'success');
+              }}
+              onEditRejected={(id, menuKey, initialData) => {
+                setEditingForm({ id, menuKey, initialData });
+                setCurrentView('wizard');
               }}
             />
           )}

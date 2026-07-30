@@ -11,10 +11,10 @@ public class FormSchemaProvider {
     public List<Map<String, String>> getTemplatesForUnit(String unit) {
         if ("UKOM".equalsIgnoreCase(unit)) {
             return List.of(
-                Map.of("id", "t3a", "title", "T3A Shift Handover Form", "description", "T3A Operasyonları, SCC ve Anomali Kontrolleri"),
-                Map.of("id", "t4a", "title", "T4A Shift Handover Form", "description", "T4A Operasyonları ve Telemetri Kontrolleri"),
-                Map.of("id", "t4b", "title", "T4B Shift Handover Form", "description", "T4B OOL, Hifly ve İstasyon Kontrolleri"),
-                Map.of("id", "t5a", "title", "T5A Shift Handover Form", "description", "T5A STR Minor/Major ve Hifly Kontrolleri")
+                Map.of("id", "t3a", "title", "T3A Vardiya Devir Formu", "description", "T3A Operasyonları, SCC ve Anomali Kontrolleri"),
+                Map.of("id", "t4a", "title", "T4A Vardiya Devir Formu", "description", "T4A Operasyonları ve Telemetri Kontrolleri"),
+                Map.of("id", "t4b", "title", "T4B Vardiya Devir Formu", "description", "T4B OOL, Hifly ve İstasyon Kontrolleri"),
+                Map.of("id", "t5a", "title", "T5A Vardiya Devir Formu", "description", "T5A STR Minor/Major ve Hifly Kontrolleri")
             );
         } else if ("UHGM".equalsIgnoreCase(unit)) {
             return List.of(
