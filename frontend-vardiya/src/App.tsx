@@ -15,11 +15,12 @@ import {
 } from '@mui/material';
 import LogoutIcon from '@mui/icons-material/Logout';
 import type { CurrentUser } from './types';
+import { apiFetch, setCurrentUserId } from './api';
 import './style.css';
 
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
-import FormCatalog from './components/FormCatalog'; 
+import FormCatalog from './components/FormCatalog';
 import FormWizard from './components/FormWizard';
 import FormDetail from './components/FormDetail';
 
@@ -69,23 +70,22 @@ export default function App() {
 
   const handleLogout = () => {
     setCurrentUser(null);
+    setCurrentUserId(null);
     setCurrentView('login');
-    setDrafts({}); 
+    setDrafts({});
   };
 
  const handleBatchSubmit = async () => {
     try {
       const promises = Object.entries(drafts).map(([formId, formData]) => {
-        // YENİ: currentUser.id payload'a eklendi!
-        const payload = { 
-          menuKey: formId, 
-          formData, 
-          userId: currentUser?.id 
+        const payload = {
+          menuKey: formId,
+          formData,
+          userId: currentUser?.id
         };
-        
-        return fetch('http://localhost:8080/api/forms/submit', {
+
+        return apiFetch('/api/forms/submit', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         }).then(res => {
           if (!res.ok) throw new Error("Backend'e kayıt başarısız oldu.");
@@ -112,9 +112,10 @@ export default function App() {
     return (
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <Login onLoginSuccess={(user) => { 
-          setCurrentUser(user); 
-          setCurrentView('dashboard'); 
+        <Login onLoginSuccess={(user) => {
+          setCurrentUser(user);
+          setCurrentUserId(user.id);
+          setCurrentView('dashboard');
           showNotification(`Hoş geldin, ${user.fullName}`, 'info');
         }} />
         
@@ -197,10 +198,11 @@ export default function App() {
           )}
 
           {currentView === 'detail' && selectedFormId && (
-            <FormDetail 
-              formId={selectedFormId} 
-              currentUser={currentUser} 
+            <FormDetail
+              formId={selectedFormId}
+              currentUser={currentUser}
               onBack={() => setCurrentView('dashboard')}
+              onNotify={showNotification}
               onSuccess={() => {
                 setCurrentView('dashboard');
                 // Onaylama bildirimi

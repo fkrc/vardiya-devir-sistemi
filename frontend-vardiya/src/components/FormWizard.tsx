@@ -1,27 +1,32 @@
 import { useState, useEffect } from 'react';
-import { 
-  Box, 
-  Button, 
-  Typography, 
-  Paper, 
-  TextField, 
-  Radio, 
-  RadioGroup, 
-  FormControlLabel, 
-  FormControl, 
-  FormLabel, 
-  Checkbox, 
-  FormGroup, 
+import {
+  Box,
+  Button,
+  Typography,
+  Paper,
+  TextField,
+  Radio,
+  RadioGroup,
+  FormControlLabel,
+  FormControl,
+  FormLabel,
+  Checkbox,
+  FormGroup,
   CircularProgress,
   LinearProgress,
   Divider,
-  Alert
+  Alert,
+  Tooltip,
+  IconButton,
+  InputAdornment
 } from '@mui/material';
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
-import type { FormSchema, Section } from '../types';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import type { Field, FieldHistoryEntry, FormSchema, Section } from '../types';
+import { apiFetchJson } from '../api';
 
 interface FormWizardProps {
   formId: string;
@@ -29,7 +34,14 @@ interface FormWizardProps {
   onSuccess: (formData: Record<string, string>) => void;
 }
 
-const MAX_FIELDS_PER_STEP = 2; 
+const MAX_FIELDS_PER_STEP = 2;
+
+// Bir alanın geçmiş değerlerinin (rehber verisi) yüklenme durumu.
+interface FieldHistoryState {
+  loading: boolean;
+  entries: FieldHistoryEntry[] | null;
+  error?: string;
+}
 
 export default function FormWizard({ formId, onCancel, onSuccess }: FormWizardProps) {
   const [rawSchema, setRawSchema] = useState<FormSchema | null>(null);
@@ -38,29 +50,40 @@ export default function FormWizard({ formId, onCancel, onSuccess }: FormWizardPr
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    console.log("1. WIZARD TETİKLENDİ. İstenen formId:", formId);
-    
-    fetch(`http://localhost:8080/api/forms/schema/${formId}`)
-      .then(res => {
-        console.log("2. BACKEND CEVAP VERDİ. Durum:", res.status);
-        if (!res.ok) throw new Error("Şema bağlantı hatası");
-        return res.json();
+  // Alan bazlı "geçmiş girişler" (rehber) verisi. Her alan ilk kez hover
+  // edildiğinde lazy olarak yüklenir ve burada key: fieldKey olarak cache'lenir.
+  const [fieldHistory, setFieldHistory] = useState<Record<string, FieldHistoryState>>({});
+
+  const loadFieldHistory = (fieldKey: string) => {
+    setFieldHistory(prev => {
+      if (prev[fieldKey]) return prev; // zaten yüklendi veya yükleniyor
+      return { ...prev, [fieldKey]: { loading: true, entries: null } };
+    });
+
+    apiFetchJson<FieldHistoryEntry[]>(`/api/forms/${formId}/field-history/${fieldKey}?days=10`)
+      .then(entries => {
+        setFieldHistory(prev => ({ ...prev, [fieldKey]: { loading: false, entries } }));
       })
+      .catch(() => {
+        setFieldHistory(prev => ({
+          ...prev,
+          [fieldKey]: { loading: false, entries: null, error: 'Geçmiş veriler yüklenemedi.' }
+        }));
+      });
+  };
+
+  useEffect(() => {
+    apiFetchJson<any>(`/api/forms/schema/${formId}`)
       .then(data => {
-        console.log("3. BACKEND'DEN GELEN HAM VERİ:", data);
-        
         // Veriyi güvenli parse etme
         let parsed: FormSchema;
         if (data && data.schemaJson) {
-          parsed = typeof data.schemaJson === 'string' 
-            ? JSON.parse(data.schemaJson) 
+          parsed = typeof data.schemaJson === 'string'
+            ? JSON.parse(data.schemaJson)
             : data.schemaJson;
         } else {
           parsed = data;
         }
-        
-        console.log("4. PARSE EDİLMİŞ ŞEMA NESNESİ:", parsed);
 
         if (!parsed || !parsed.sections) {
            console.warn("DİKKAT: Şema içinde 'sections' dizisi bulunamadı!");
@@ -69,9 +92,7 @@ export default function FormWizard({ formId, onCancel, onSuccess }: FormWizardPr
 
         const fixedSections: Section[] = [];
         parsed.sections.forEach(sec => {
-          const safeFields = sec.fields || []; 
-          console.log(`Bölüm: ${sec.title}, Toplam Soru Sayısı: ${safeFields.length}`);
-          
+          const safeFields = sec.fields || [];
           const mainFields = safeFields.filter(f => !f.dependsOn);
 
           if (mainFields.length <= MAX_FIELDS_PER_STEP) {
@@ -87,15 +108,14 @@ export default function FormWizard({ formId, onCancel, onSuccess }: FormWizardPr
           }
         });
 
-        console.log("5. EKRANA ÇİZİLECEK SAYFALAR:", fixedSections);
-
         setPaginatedSections(fixedSections);
         setRawSchema(parsed);
-        setCurrentStep(0); 
-        setFormData({}); 
+        setCurrentStep(0);
+        setFormData({});
+        setFieldHistory({});
       })
       .catch(err => {
-        console.error("6. HATA YAKALANDI:", err);
+        console.error("Şema yüklenirken hata:", err);
         setError(err.message);
       });
   }, [formId]);
@@ -166,31 +186,60 @@ export default function FormWizard({ formId, onCancel, onSuccess }: FormWizardPr
                 <FormControl fullWidth required={field.required} component="fieldset">
                   
                   {field.type === 'text' || field.type === 'number' ? (
-                    <TextField 
-                      fullWidth 
+                    <TextField
+                      fullWidth
                       type={field.type}
-                      label={field.label} 
+                      label={field.label}
                       required={field.required}
-                      value={formData[field.key] || ''} 
-                      onChange={(e) => setFormData(p => ({ ...p, [field.key]: e.target.value }))} 
+                      value={formData[field.key] || ''}
+                      onChange={(e) => setFormData(p => ({ ...p, [field.key]: e.target.value }))}
                       variant="outlined"
+                      InputProps={{
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <FieldHistoryButton
+                              field={field}
+                              historyState={fieldHistory[field.key]}
+                              onOpen={() => loadFieldHistory(field.key)}
+                            />
+                          </InputAdornment>
+                        )
+                      }}
                     />
                   ) : field.type === 'textarea' ? (
-                    <TextField 
-                      fullWidth 
-                      multiline 
+                    <TextField
+                      fullWidth
+                      multiline
                       rows={4}
-                      label={field.label} 
+                      label={field.label}
                       required={field.required}
-                      value={formData[field.key] || ''} 
-                      onChange={(e) => setFormData(p => ({ ...p, [field.key]: e.target.value }))} 
+                      value={formData[field.key] || ''}
+                      onChange={(e) => setFormData(p => ({ ...p, [field.key]: e.target.value }))}
                       variant="outlined"
+                      InputProps={{
+                        endAdornment: (
+                          <InputAdornment position="end" sx={{ alignSelf: 'flex-start', mt: 1 }}>
+                            <FieldHistoryButton
+                              field={field}
+                              historyState={fieldHistory[field.key]}
+                              onOpen={() => loadFieldHistory(field.key)}
+                            />
+                          </InputAdornment>
+                        )
+                      }}
                     />
                   ) : field.type === 'radio' && field.options ? (
                     <>
-                      <FormLabel sx={{ mb: 1, fontWeight: 500, color: 'text.primary' }}>
-                        {field.label} {field.required && <span style={{color: '#ef4444'}}>*</span>}
-                      </FormLabel>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                        <FormLabel sx={{ fontWeight: 500, color: 'text.primary' }}>
+                          {field.label} {field.required && <span style={{color: '#ef4444'}}>*</span>}
+                        </FormLabel>
+                        <FieldHistoryButton
+                          field={field}
+                          historyState={fieldHistory[field.key]}
+                          onOpen={() => loadFieldHistory(field.key)}
+                        />
+                      </Box>
                       <RadioGroup
                         value={formData[field.key] || ''}
                         onChange={(e) => setFormData(p => ({ ...p, [field.key]: e.target.value }))}
@@ -202,21 +251,28 @@ export default function FormWizard({ formId, onCancel, onSuccess }: FormWizardPr
                     </>
                   ) : field.type === 'checkbox_group' && field.options ? (
                     <>
-                      <FormLabel sx={{ mb: 1, fontWeight: 500, color: 'text.primary' }}>
-                        {field.label} {field.required && <span style={{color: '#ef4444'}}>*</span>}
-                      </FormLabel>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                        <FormLabel sx={{ fontWeight: 500, color: 'text.primary' }}>
+                          {field.label} {field.required && <span style={{color: '#ef4444'}}>*</span>}
+                        </FormLabel>
+                        <FieldHistoryButton
+                          field={field}
+                          historyState={fieldHistory[field.key]}
+                          onOpen={() => loadFieldHistory(field.key)}
+                        />
+                      </Box>
                       <FormGroup>
                         {field.options.map((opt) => (
-                          <FormControlLabel 
-                            key={opt} 
+                          <FormControlLabel
+                            key={opt}
                             control={
-                              <Checkbox 
-                                checked={formData[field.key] === opt} 
+                              <Checkbox
+                                checked={formData[field.key] === opt}
                                 onChange={(e) => setFormData(p => ({ ...p, [field.key]: e.target.checked ? opt : '' }))}
                                 color="primary"
                               />
-                            } 
-                            label={opt} 
+                            }
+                            label={opt}
                           />
                         ))}
                       </FormGroup>
@@ -241,12 +297,23 @@ export default function FormWizard({ formId, onCancel, onSuccess }: FormWizardPr
                           animation: 'fadeIn 0.3s ease-in'
                         }}
                       >
-                        <TextField 
-                          fullWidth 
+                        <TextField
+                          fullWidth
                           size="small"
-                          label={childField.label} 
-                          value={formData[childField.key] || ''} 
-                          onChange={(e) => setFormData(p => ({ ...p, [childField.key]: e.target.value }))} 
+                          label={childField.label}
+                          value={formData[childField.key] || ''}
+                          onChange={(e) => setFormData(p => ({ ...p, [childField.key]: e.target.value }))}
+                          InputProps={{
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <FieldHistoryButton
+                                  field={childField}
+                                  historyState={fieldHistory[childField.key]}
+                                  onOpen={() => loadFieldHistory(childField.key)}
+                                />
+                              </InputAdornment>
+                            )
+                          }}
                         />
                       </Box>
                     );
@@ -308,5 +375,71 @@ export default function FormWizard({ formId, onCancel, onSuccess }: FormWizardPr
 
       </Paper>
     </Box>
+  );
+}
+
+// REHBER BUTONU: Alanın yanındaki küçük "i" ikonu. Üzerine gelindiğinde
+// (Tooltip onOpen), bu alana son 10 gün içinde girilmiş değerleri backend'den
+// çeker ve listeler. Amaç, formu dolduran kişiye "genelde buraya ne yazılıyor"
+// konusunda bir rehber sağlamak.
+function FieldHistoryButton({
+  field,
+  historyState,
+  onOpen
+}: {
+  field: Field;
+  historyState?: FieldHistoryState;
+  onOpen: () => void;
+}) {
+  const renderContent = () => {
+    if (!historyState || historyState.loading) {
+      return (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5 }}>
+          <CircularProgress size={12} color="inherit" />
+          <Typography variant="caption">Yükleniyor...</Typography>
+        </Box>
+      );
+    }
+
+    if (historyState.error) {
+      return <Typography variant="caption">{historyState.error}</Typography>;
+    }
+
+    if (!historyState.entries || historyState.entries.length === 0) {
+      return <Typography variant="caption">Son 10 günde bu alana ait kayıt bulunamadı.</Typography>;
+    }
+
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        {historyState.entries.map((entry, idx) => (
+          <Typography key={idx} variant="caption" sx={{ display: 'block' }}>
+            • {entry.value}{' '}
+            <Box component="span" sx={{ opacity: 0.7 }}>
+              ({new Date(entry.recordDate).toLocaleDateString('tr-TR')})
+            </Box>
+          </Typography>
+        ))}
+      </Box>
+    );
+  };
+
+  return (
+    <Tooltip
+      arrow
+      placement="right"
+      onOpen={onOpen}
+      title={
+        <Box sx={{ p: 0.5, minWidth: 200, maxWidth: 280 }}>
+          <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
+            "{field.label}" - Son 10 Gün
+          </Typography>
+          {renderContent()}
+        </Box>
+      }
+    >
+      <IconButton size="small" tabIndex={-1} aria-label={`${field.label} geçmiş değerleri`}>
+        <InfoOutlinedIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+      </IconButton>
+    </Tooltip>
   );
 }

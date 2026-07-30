@@ -9,22 +9,30 @@ import com.example.vardiyadevir.repository.UnitRepository; // Unit Repository Ek
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Configuration
 public class DatabaseSeeder {
 
     @Bean
-    CommandLineRunner initDatabase(UserRepository userRepository, 
-                                   FormDefinitionRepository formDefinitionRepository, 
-                                   UnitRepository unitRepository) {
+    CommandLineRunner initDatabase(UserRepository userRepository,
+                                   FormDefinitionRepository formDefinitionRepository,
+                                   UnitRepository unitRepository,
+                                   PasswordEncoder passwordEncoder) {
         return args -> {
-            
-            // 1. KULLANICILARIN EKLENMESİ (Kullanıcılar hala String kullanıyor gibi görünüyor)
+
+            // 1. KULLANICILARIN EKLENMESİ
+            // NOT: Şifreler artık düz metin değil, BCrypt ile hashlenerek saklanıyor.
+            // Test giriş şifresi hepsi için "1234".
+            // MANAGER kullanıcıları (M1/M2) eskiden hiç seed edilmiyordu; frontend login ekranı
+            // bu kullanıcıları varsayıyordu ve backend'de bulunamadıkları için sahte (mock) bir
+            // girişe düşülüyordu. Artık gerçek DB kullanıcıları olarak ekleniyorlar.
             if (userRepository.count() == 0) {
-                User u1 = new User(); u1.setUsername("U1"); u1.setPassword("1234"); u1.setRole("OPERATOR"); u1.setUnit("UHGM"); userRepository.save(u1);
-                User u2 = new User(); u2.setUsername("U2"); u2.setPassword("1234"); u2.setRole("OPERATOR"); u2.setUnit("UKOM"); userRepository.save(u2);
-                User a1 = new User(); a1.setUsername("A1"); a1.setPassword("1234"); a1.setRole("SUPERVISOR"); a1.setUnit("ALL"); userRepository.save(a1);
-                System.out.println("Test kullanıcıları eklendi!");
+                User u1 = new User(); u1.setUsername("U1"); u1.setFullName("UHGM Personeli 1"); u1.setPassword(passwordEncoder.encode("1234")); u1.setRole("PERSONNEL"); u1.setUnit("UHGM"); userRepository.save(u1);
+                User u2 = new User(); u2.setUsername("U2"); u2.setFullName("UKOM Personeli 1"); u2.setPassword(passwordEncoder.encode("1234")); u2.setRole("PERSONNEL"); u2.setUnit("UKOM"); userRepository.save(u2);
+                User m1 = new User(); m1.setUsername("M1"); m1.setFullName("UHGM Yöneticisi"); m1.setPassword(passwordEncoder.encode("1234")); m1.setRole("MANAGER"); m1.setUnit("UHGM"); userRepository.save(m1);
+                User m2 = new User(); m2.setUsername("M2"); m2.setFullName("UKOM Yöneticisi"); m2.setPassword(passwordEncoder.encode("1234")); m2.setRole("MANAGER"); m2.setUnit("UKOM"); userRepository.save(m2);
+                System.out.println("Test kullanıcıları eklendi! (U1, U2, M1, M2 - şifre: 1234)");
             }
 
             // 2. FORM ŞABLONLARI İÇİN 'UNIT' NESNELERİNİN HAZIRLANMASI

@@ -14,6 +14,7 @@ import {
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SendIcon from '@mui/icons-material/Send';
+import { apiFetchJson } from '../api';
 
 interface FormTemplate {
   id: number | string;
@@ -35,20 +36,18 @@ export default function FormCatalog({ unit, onSelectForm, completedForms, onSubm
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Kendi backend endpoint'ine göre burayı uyarlayabilirsin.
-    // Örnek: Sadece aktif kullanıcının birimine ait (örneğin UKOM) form şablonlarını getir.
-    fetch(`http://localhost:8080/api/forms/templates?unit=${unit}`)
-      .then(res => {
-        if (!res.ok) throw new Error("Şablonlar çekilemedi");
-        return res.json();
-      })
+    setLoading(true);
+    apiFetchJson<FormTemplate[]>(`/api/forms/templates?unit=${encodeURIComponent(unit)}`)
       .then(data => {
         setTemplates(data);
         setLoading(false);
       })
       .catch(err => {
         console.error(err);
-        // Backend'de özel bir endpoint yoksa şimdilik sahte veri (Mock) ile arayüzü gösterelim
+        // NOT: Bu fallback sadece backend gerçekten ulaşılamaz durumdaysa devreye
+        // girer ve UKOM'a özel örnek veridir; UHGM için yanıltıcı olabileceğinden
+        // burada olduğunu kullanıcıya da bir uyarı olarak belirtmek daha doğru olurdu.
+        // Şimdilik geliştirme kolaylığı için korunuyor.
         setTemplates([
           { id: 1, menuKey: 't3a', title: 'T3A Shift Handover Form' },
           { id: 2, menuKey: 't4a', title: 'T4A Shift Handover Form' },

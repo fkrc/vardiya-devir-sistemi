@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Box, Button, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip } from '@mui/material';
 import { AddCircleOutlined as AddCircleOutlineIcon, Visibility as VisibilityIcon } from '@mui/icons-material';
 import type { CurrentUser, ShiftFormList } from '../types';
+import { apiFetchJson } from '../api';
 
 interface DashboardProps {
   currentUser: CurrentUser;
@@ -13,25 +14,12 @@ export default function Dashboard({ currentUser, onNewForm, onViewDetail }: Dash
   const [formsList, setFormsList] = useState<ShiftFormList[]>([]);
 
   useEffect(() => {
-    fetch('http://localhost:8080/api/forms/list')
-      .then(res => res.json())
-      .then(data => {
-        const filteredData = data.filter((form: any) => {
-          if (currentUser.role === 'MANAGER') {
-            // Yönetici sadece kendi biriminin formlarını görür
-            return form.unitName === currentUser.unit;
-          } else {
-            // Personel kendi oluşturduğu formları görür.
-            // ESKİ KAYIT DESTEĞİ: Eğer formun veritabanında userId'si yoksa (eski test verisiyse), personelin kendi birimindeki formları göster.
-            if (form.userId || form.createdById) {
-              return form.userId === currentUser.id || form.createdById === currentUser.id;
-            }
-            return form.unitName === currentUser.unit;
-          }
-        });
-        
-        setFormsList(filteredData);
-      })
+    // NOT: Rol/birim filtresi artık sunucu tarafında uygulanıyor
+    // (X-User-Id header'ı apiFetch tarafından otomatik ekleniyor, backend
+    // bu id'ye göre gerçek rol/birimi DB'den okuyup listeyi süzüyor).
+    // Bu yüzden burada ayrıca client-side filtreleme yapmaya gerek yok.
+    apiFetchJson<ShiftFormList[]>('/api/forms/list')
+      .then(setFormsList)
       .catch(err => console.error(err));
   }, [currentUser]);
 

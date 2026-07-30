@@ -11,8 +11,15 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false, unique = true)
     private String username;
-    private String password; // EKSİK OLAN VEYA HATA VEREN KISIM BURASI
-    private String role; 
-    private String unit; 
+
+    @Column(name = "full_name")
+    private String fullName;
+
+    // BCrypt ile hashlenmiş şifre. Asla düz metin olarak saklanmaz veya response'a dahil edilmez.
+    private String password;
+
+    private String role; // PERSONNEL / MANAGER (veya eski değerler: OPERATOR / SUPERVISOR)
+    private String unit;
 }

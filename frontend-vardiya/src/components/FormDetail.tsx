@@ -11,30 +11,29 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import type { CurrentUser, FormSchema } from '../types';
+import { apiFetch, apiFetchJson } from '../api';
 
 interface FormDetailProps {
   formId: number;
   currentUser: CurrentUser;
   onBack: () => void;
   onSuccess: () => void;
+  onNotify: (message: string, severity?: 'success' | 'error' | 'info' | 'warning') => void;
 }
 
-export default function FormDetail({ formId, currentUser, onBack, onSuccess }: FormDetailProps) {
+export default function FormDetail({ formId, currentUser, onBack, onSuccess, onNotify }: FormDetailProps) {
   const [selectedForm, setSelectedForm] = useState<any>(null);
   const [schema, setSchema] = useState<FormSchema | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`http://localhost:8080/api/forms/${formId}`)
-      .then(res => res.json())
+    apiFetchJson<any>(`/api/forms/${formId}`)
       .then(data => {
         setSelectedForm(data);
-        
-        // DÜZELTME 1: Sabit 'satellite_control' yerine, gelen formun kendi şemasını çekiyoruz.
+
         const formMenuKey = data.menuKey || data.formDefinition?.menuKey;
         if (formMenuKey) {
-          fetch(`http://localhost:8080/api/forms/schema/${formMenuKey}`)
-            .then(res => res.json())
+          apiFetchJson<any>(`/api/forms/schema/${formMenuKey}`)
             .then(schemaData => {
               if (schemaData && schemaData.schemaJson) {
                 setSchema(typeof schemaData.schemaJson === 'string' ? JSON.parse(schemaData.schemaJson) : schemaData.schemaJson);
@@ -51,22 +50,24 @@ export default function FormDetail({ formId, currentUser, onBack, onSuccess }: F
       })
       .catch(err => {
         console.error("Form verisi çekilemedi:", err);
+        onNotify('Form verisi çekilemedi ya da bu formu görüntüleme yetkiniz yok.', 'error');
         setLoading(false);
       });
-  }, [formId]);
+  }, [formId, onNotify]);
 
   const handleAdvanceStatus = async () => {
     try {
-      const res = await fetch(`http://localhost:8080/api/forms/${formId}/advance-status`, { method: 'POST' });
+      const res = await apiFetch(`/api/forms/${formId}/advance-status`, { method: 'POST' });
       if (res.ok) {
-        alert("Form başarıyla onaylandı!");
+        onNotify('Form başarıyla onaylandı!', 'success');
         onSuccess();
       } else {
-        alert("Hata: Form onaylanırken sunucu bir hata döndürdü.");
+        const text = await res.text().catch(() => '');
+        onNotify(text || 'Hata: Form onaylanırken sunucu bir hata döndürdü.', 'error');
       }
     } catch (err) {
       console.error(err);
-      alert("Hata: Sunucuya ulaşılamadı.");
+      onNotify('Hata: Sunucuya ulaşılamadı.', 'error');
     }
   };
 

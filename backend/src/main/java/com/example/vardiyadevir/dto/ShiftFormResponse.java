@@ -10,4 +10,5 @@ public class ShiftFormResponse {
     private String unitName;    // Örn: "OKOM"
     private String status;      // Örn: "DRAFT"
     private ZonedDateTime recordDate;
+    private Long createdById;   // Formu oluşturan (devreden) kullanıcının id'si
 }

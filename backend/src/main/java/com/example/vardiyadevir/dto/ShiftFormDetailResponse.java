@@ -11,4 +11,6 @@ public class ShiftFormDetailResponse {
     private String status;
     private ZonedDateTime recordDate;
     private String formData; // Kullanıcının doldurduğu asıl form verisi
+    private Long createdById; // Formu oluşturan (devreden) kullanıcının id'si
+    private String menuKey;   // Formun şablon anahtarı (frontend şemayı buradan tekrar çeker)
 }

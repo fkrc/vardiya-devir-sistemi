@@ -6,10 +6,17 @@ import SatelliteAltIcon from '@mui/icons-material/SatelliteAlt';
 import EngineeringIcon from '@mui/icons-material/Engineering';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import type { CurrentUser } from '../types';
+import { apiFetch } from '../api';
 
 interface LoginProps {
   onLoginSuccess: (user: CurrentUser) => void;
 }
+
+// Test/demo paneli: gerçek bir şifre giriş formu yerine hızlı giriş butonları
+// kullanılıyor, ancak artık bu butonlar da backend'e gerçek şifreyle (BCrypt
+// doğrulamalı) istek atıyor. Backend seed verisinde U1/U2/M1/M2 kullanıcılarının
+// hepsinin test şifresi "1234"tür (bkz. DatabaseSeeder).
+const DEMO_PASSWORD = '1234';
 
 export default function Login({ onLoginSuccess }: LoginProps) {
   const [loadingUser, setLoadingUser] = useState<string | null>(null);
@@ -20,52 +27,23 @@ export default function Login({ onLoginSuccess }: LoginProps) {
     setError(null);
 
     try {
-      const res = await fetch('http://localhost:8080/api/auth/login', {
+      const res = await apiFetch('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username })
+        body: JSON.stringify({ username, password: DEMO_PASSWORD })
       });
 
       if (res.ok) {
         const data = await res.json();
-
-        const userUnit = data.unit || (username.includes('1') ? 'UHGM' : 'UKOM');
-        let rawRole = data.role;
-        if (rawRole === 'OPERATOR') rawRole = 'PERSONNEL';
-        if (rawRole === 'SUPERVISOR' || rawRole === 'UNIT_MANAGER') rawRole = 'MANAGER';
-
-        const userRole = rawRole || (username.startsWith('M') ? 'MANAGER' : 'PERSONNEL');
-
-        let userFullName = data.fullName;
-        if (!userFullName) {
-          if (username === 'U1') userFullName = 'UHGM Personeli 1';
-          if (username === 'U2') userFullName = 'UKOM Personeli 1';
-          if (username === 'M1') userFullName = 'UHGM Yöneticisi';
-          if (username === 'M2') userFullName = 'UKOM Yöneticisi';
-        }
-
         const user: CurrentUser = {
-          id: data.id || (username === 'U1' ? 1 : username === 'U2' ? 2 : username === 'M1' ? 3 : 4),
-          username: data.username || username,
-          fullName: userFullName,
-          role: userRole,
-          unit: userUnit
+          id: data.id,
+          username: data.username,
+          fullName: data.fullName,
+          role: data.role,
+          unit: data.unit
         };
-
         onLoginSuccess(user);
       } else {
-        // YÖNETİCİLER İÇİN TEST (MOCK) GİRİŞİ: Backend'de M1/M2 yoksa hata verme, sistemi simüle et.
-        if (username.startsWith('M')) {
-          onLoginSuccess({
-            id: username === 'M1' ? 3 : 4,
-            username: username,
-            fullName: username === 'M1' ? 'UHGM Yöneticisi' : 'UKOM Yöneticisi',
-            role: 'MANAGER',
-            unit: username === 'M1' ? 'UHGM' : 'UKOM'
-          });
-        } else {
-          setError("Kullanıcı bulunamadı! Lütfen Backend'in (Seeder) çalıştığından emin olun.");
-        }
+        setError("Giriş başarısız! Lütfen Backend'in (Seeder) çalıştığından emin olun.");
       }
     } catch {
       setError("Sunucuya bağlanılamadı. Backend servisinin ayakta olduğunu kontrol edin.");
