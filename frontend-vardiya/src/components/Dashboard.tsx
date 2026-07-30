@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Box, Button, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, FormControl, InputLabel, Select, MenuItem, Pagination } from '@mui/material';
-import { AddCircleOutlined as AddCircleOutlineIcon, Visibility as VisibilityIcon, FilterAlt as FilterAltIcon } from '@mui/icons-material';
+import { Box, Button, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, FormControl, InputLabel, Select, MenuItem, Pagination, TextField, IconButton } from '@mui/material';
+import { AddCircleOutlined as AddCircleOutlineIcon, Visibility as VisibilityIcon, FilterAlt as FilterAltIcon, Clear as ClearIcon } from '@mui/icons-material';
 import type { CurrentUser, ShiftFormList } from '../types';
 import { apiFetchJson } from '../api';
 
@@ -16,6 +16,7 @@ const PAGE_SIZE = 10;
 export default function Dashboard({ currentUser, onNewForm, onViewDetail }: DashboardProps) {
   const [formsList, setFormsList] = useState<ShiftFormList[]>([]);
   const [templateFilter, setTemplateFilter] = useState<string>(ALL_TEMPLATES);
+  const [dateFilter, setDateFilter] = useState<string>(''); // '' = tümü, aksi halde 'YYYY-MM-DD' (yerel gün)
   const [page, setPage] = useState(1);
 
   useEffect(() => {
@@ -40,14 +41,27 @@ export default function Dashboard({ currentUser, onNewForm, onViewDetail }: Dash
   }, [formsList]);
 
   const visibleForms = useMemo(() => {
-    if (templateFilter === ALL_TEMPLATES) return formsList;
-    return formsList.filter(f => (f.menuKey || f.formTitle) === templateFilter);
-  }, [formsList, templateFilter]);
+    let result = formsList;
+
+    if (templateFilter !== ALL_TEMPLATES) {
+      result = result.filter(f => (f.menuKey || f.formTitle) === templateFilter);
+    }
+
+    if (dateFilter) {
+      const [y, m, d] = dateFilter.split('-').map(Number);
+      result = result.filter(f => {
+        const recorded = new Date(f.recordDate);
+        return recorded.getFullYear() === y && recorded.getMonth() === m - 1 && recorded.getDate() === d;
+      });
+    }
+
+    return result;
+  }, [formsList, templateFilter, dateFilter]);
 
   // Filtre değiştiğinde veya liste yenilendiğinde sayfa numarasını başa al.
   useEffect(() => {
     setPage(1);
-  }, [templateFilter, formsList]);
+  }, [templateFilter, dateFilter, formsList]);
 
   const pageCount = Math.max(1, Math.ceil(visibleForms.length / PAGE_SIZE));
   const pagedForms = useMemo(
@@ -81,7 +95,7 @@ export default function Dashboard({ currentUser, onNewForm, onViewDetail }: Dash
         )}
       </Box>
 
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2, flexShrink: 0 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2, flexShrink: 0, flexWrap: 'wrap' }}>
         <FilterAltIcon fontSize="small" sx={{ color: 'text.secondary' }} />
         <FormControl size="small" sx={{ minWidth: 260 }}>
           <InputLabel id="template-filter-label">Form Şablonu</InputLabel>
@@ -97,6 +111,25 @@ export default function Dashboard({ currentUser, onNewForm, onViewDetail }: Dash
             ))}
           </Select>
         </FormControl>
+
+        <TextField
+          type="date"
+          size="small"
+          label="Tarih"
+          value={dateFilter}
+          onChange={(e) => setDateFilter(e.target.value)}
+          slotProps={{
+            inputLabel: { shrink: true },
+            input: {
+              endAdornment: dateFilter && (
+                <IconButton size="small" onClick={() => setDateFilter('')} aria-label="Tarih filtresini temizle">
+                  <ClearIcon fontSize="small" />
+                </IconButton>
+              )
+            }
+          }}
+          sx={{ minWidth: 200 }}
+        />
       </Box>
 
       <TableContainer component={Paper} elevation={2} sx={{ borderRadius: 2, maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}>
@@ -118,7 +151,7 @@ export default function Dashboard({ currentUser, onNewForm, onViewDetail }: Dash
                 <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                   {formsList.length === 0
                     ? 'Bu birime veya size ait kayıtlı vardiya formu bulunmuyor.'
-                    : 'Seçili şablona ait kayıtlı vardiya formu bulunmuyor.'}
+                    : 'Seçili filtrelere uyan kayıtlı vardiya formu bulunmuyor.'}
                 </TableCell>
               </TableRow>
             ) : (
