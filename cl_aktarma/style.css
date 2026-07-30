@@ -1,0 +1,283 @@
+/* --- GENEL AYARLAR (MODERN & MİNİMAL) --- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+    background-color: #f4f6f8;
+    color: #2c3e50;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh; /* Ekranın %100'ü */
+    overflow: hidden; /* Dış sayfanın kaymasını KESİNLİKLE engeller, App hissi verir */
+}
+
+/* Ana Uygulama Sarıcısı */
+#root {
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+/* --- KUTU TASARIMLARI (Sabit Boyut ve Web App Hissi) --- */
+.dashboard-container, .wizard-container {
+    background: #ffffff;
+    width: 100%;
+    max-width: 900px;
+    height: 85vh; /* Kutunun yüksekliği ekranın %85'i kadar olsun */
+    max-height: 850px; /* Çok büyük monitörlerde aşırı uzamasın */
+    min-height: 500px;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column; /* İçeriği dikey dizer */
+    overflow: hidden; /* Kutu dışına taşmaları keser */
+    position: relative;
+}
+
+/* --- İÇ KAYDIRMA ALANLARI VE HEADER/FOOTER (Scrollable Areas) --- */
+.dashboard-header, .wizard-header {
+    padding: 30px 40px 20px 40px;
+    background: white; 
+    z-index: 10;
+    border-bottom: 1px solid #f1f5f9;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.form-section, .scrollable-content {
+    flex: 1; 
+    overflow-y: auto;
+    overflow-x: hidden; /* Gereksiz yatay kaydırmayı tamamen kilitler */
+    padding: 0 40px 20px 40px; /* Üst padding 0 bırakıldı, thead aralığından sızmayı kapatır */
+}
+
+.wizard-footer {
+    padding: 25px 40px; /* Footer daha ferah */
+    border-top: 1px solid #f1f5f9;
+    background: #fafaf9;
+    z-index: 10;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* --- MODERN SCROLLBAR TASARIMI (Mac Tarzı İnce) --- */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent; 
+}
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1; 
+    border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8; 
+}
+
+/* --- ANİMASYONLAR (Fade-in) --- */
+@keyframes fadeInSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(15px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade {
+    animation: fadeInSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* --- BAŞLIKLAR & BİLGİ BARLARI --- */
+h2 {
+    font-weight: 600;
+    font-size: 1.5rem;
+    color: #1e293b;
+}
+
+.progress-bar-bg {
+    background: #e2e8f0;
+    height: 6px;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 15px;
+}
+
+.progress-bar-fill {
+    background: #3b82f6; /* Modern Mavi */
+    height: 100%;
+    transition: width 0.4s ease;
+}
+
+/* --- FORM ELEMANLARI (Minimalist) --- */
+.form-group {
+    margin-bottom: 25px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 10px;
+    font-size: 1rem; /* Büyütüldü */
+    font-weight: 600;
+    color: #334155;
+}
+
+input[type="text"], input[type="number"], textarea {
+    width: 100%;
+    padding: 16px 20px; /* Form inputları büyütüldü */
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    font-size: 1.1rem; /* Yazılar belirginleşti */
+    color: #1e293b;
+    background: #f8fafc;
+    transition: all 0.2s ease;
+}
+
+input[type="text"]:focus, input[type="number"]:focus, textarea:focus {
+    background: #ffffff;
+    border-color: #3b82f6;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+/* Radio & Checkbox Özel Tasarım */
+.radio-group, .checkbox-group {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); /* Boşlukları otomatik doldurur */
+    gap: 15px;
+}
+
+.radio-item, .checkbox-item {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    padding: 15px 20px; /* Seçim kutuları büyütüldü */
+    border-radius: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center; /* Yazıları ortalar */
+    gap: 10px;
+    font-size: 1.05rem;
+    font-weight: 500;
+}
+
+.radio-item:hover, .checkbox-item:hover {
+    background: #f1f5f9;
+}
+
+/* --- BUTONLAR --- */
+.btn {
+    padding: 14px 28px; /* Butonlar ciddi oranda büyütüldü */
+    border: none;
+    border-radius: 10px;
+    font-size: 1.05rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 140px; /* Butonlara asgari bir genişlik verildi */
+}
+
+.btn-next { background: #3b82f6; color: white; }
+.btn-next:hover { background: #2563eb; }
+
+.btn-back { background: #e2e8f0; color: #475569; }
+.btn-back:hover { background: #cbd5e1; }
+
+.btn-exit { background: transparent; color: #ef4444; }
+.btn-exit:hover { background: #fee2e2; }
+
+/* --- TABLO & DASHBOARD --- */
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: auto;
+}
+
+.data-table th, .data-table td {
+    padding: 16px 12px; /* Devasa boşluklar daraltıldı */
+    text-align: left;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+}
+
+.data-table th {
+    color: #64748b;
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: sticky; /* Tabloyu aşağı kaydırırken başlıklar üstte sabit kalır */
+    top: 0;
+    background: #ffffff; 
+    z-index: 5;
+    box-shadow: 0 4px 6px -4px rgba(0, 0, 0, 0.05); /* Kaydırırken başlığı tablodan ayıran zarif gölge */
+}
+
+.data-table tr:hover { background-color: #f8fafc; }
+
+/* Tarih, Durum ve İşlem sütunlarının sıkışıp alt satıra düşmesini kesin olarak engeller */
+.data-table th:nth-child(4), .data-table td:nth-child(4),
+.data-table th:nth-child(5), .data-table td:nth-child(5),
+.data-table th:nth-child(6), .data-table td:nth-child(6) {
+    white-space: nowrap; 
+}
+
+/* Durum Rozetleri */
+.status-badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap; /* Yazının alt satıra düşmesini engeller */
+    display: inline-block;
+}
+
+.status-draft { background: #fef3c7; color: #d97706; }
+.status-pending { background: #dbeafe; color: #2563eb; }
+.status-completed { background: #d1fae5; color: #059669; }
+
+/* --- MOBİL VE TABLET UYUMU (RESPONSIVE) --- */
+@media (max-width: 768px) {
+    #root { padding: 0; }
+    
+    .dashboard-container, .wizard-container {
+        height: 100vh;
+        max-height: 100vh;
+        border-radius: 0;
+        max-width: 100%;
+    }
+
+    .form-section, .scrollable-content {
+        padding: 0 20px 20px 20px; /* Mobilde de üst sızmayı engelledik */
+    }
+
+    .dashboard-header, .wizard-header, .wizard-footer {
+        padding: 20px;
+    }
+
+    .data-table th, .data-table td {
+        padding: 12px;
+    }
+    
+    .data-table {
+        display: block;
+        overflow-x: auto; /* Sadece mobilde tablo içi yana kayabilsin diye */
+        white-space: nowrap;
+    }
+}
