@@ -1,0 +1,92 @@
+# Vardiya Devir Sistemi — Test ortamı CI/CD pipeline'ı
+#
+# Akış: "test" branch'ine push -> Frontend & Backend Docker imajlarını build et
+# -> GitLab Container Registry'ye pushla -> SSH ile test sunucusuna bağlanıp
+# "docker compose pull && docker compose up -d" ile ortamı güncelle.
+#
+# Sadece "test" branch'inde çalışır.
+workflow:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "test"'
+
+stages:
+  - build
+  - deploy
+
+variables:
+  DOCKER_HOST: tcp://docker:2376
+  DOCKER_TLS_CERTDIR: "/certs"
+  DOCKER_TLS_VERIFY: 1
+  DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
+  BACKEND_IMAGE: "$CI_REGISTRY_IMAGE/backend"
+  FRONTEND_IMAGE: "$CI_REGISTRY_IMAGE/frontend"
+
+.docker_build:
+  image: docker:27
+  services:
+    - docker:27-dind
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+
+build-backend:
+  extends: .docker_build
+  stage: build
+  script:
+    - >
+      docker build
+      --pull
+      --cache-from "$BACKEND_IMAGE:test-latest"
+      -t "$BACKEND_IMAGE:$CI_COMMIT_SHORT_SHA"
+      -t "$BACKEND_IMAGE:test-latest"
+      ./backend
+    - docker push "$BACKEND_IMAGE:$CI_COMMIT_SHORT_SHA"
+    - docker push "$BACKEND_IMAGE:test-latest"
+
+build-frontend:
+  extends: .docker_build
+  stage: build
+  script:
+    - >
+      docker build
+      --pull
+      --cache-from "$FRONTEND_IMAGE:test-latest"
+      --build-arg VITE_API_BASE_URL="${VITE_API_BASE_URL:-}"
+      -t "$FRONTEND_IMAGE:$CI_COMMIT_SHORT_SHA"
+      -t "$FRONTEND_IMAGE:test-latest"
+      ./frontend-vardiya
+    - docker push "$FRONTEND_IMAGE:$CI_COMMIT_SHORT_SHA"
+    - docker push "$FRONTEND_IMAGE:test-latest"
+
+deploy-test:
+  stage: deploy
+  image: alpine:3.20
+  needs:
+    - build-backend
+    - build-frontend
+  before_script:
+    - apk add --no-cache openssh-client
+    - eval "$(ssh-agent -s)"
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    # SSH_KNOWN_HOSTS, GitLab Variable olarak önceden "ssh-keyscan <sunucu>" ile
+    # alınıp doğrulanmış host key içerir (MITM riskine karşı). Bkz. açıklama metni.
+    - echo "$SSH_KNOWN_HOSTS" >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+  script:
+    # Sunucuda sadece docker-compose.yml güncellenir; kaynak kod veya build
+    # context'i sunucuya taşınmaz, imajlar registry'den pull edilir.
+    - scp docker-compose.yml "$TEST_SERVER_USER@$TEST_SERVER_HOST:$TEST_SERVER_APP_DIR/docker-compose.yml"
+    - |
+      ssh "$TEST_SERVER_USER@$TEST_SERVER_HOST" bash -s <<EOF
+        set -e
+        cd "$TEST_SERVER_APP_DIR"
+        echo "$REGISTRY_PASSWORD" | docker login -u "$REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+        export CI_REGISTRY_IMAGE="$CI_REGISTRY_IMAGE"
+        export IMAGE_TAG="$CI_COMMIT_SHORT_SHA"
+        docker compose pull
+        docker compose up -d
+        docker image prune -f
+      EOF
+  environment:
+    name: test
+    url: "http://$TEST_SERVER_HOST"

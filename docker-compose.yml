@@ -1,0 +1,64 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: vardiya-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-vardiya_devir}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD ortam değişkeni zorunlu (.env dosyasına bakınız)}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_NAME:-vardiya_devir}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vardiya-net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: ${CI_REGISTRY_IMAGE:-vardiya-devir}/backend:${IMAGE_TAG:-latest}
+    container_name: vardiya-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-vardiya_devir}
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD ortam değişkeni zorunlu (.env dosyasına bakınız)}
+    ports:
+      - "8080:8080"
+    networks:
+      - vardiya-net
+
+  frontend:
+    build:
+      context: ./frontend-vardiya
+      dockerfile: Dockerfile
+      args:
+        # Boş bırakılır: frontend backend'e kendi origin'i üzerinden "/api/..."
+        # ile konuşur, nginx bunu backend servisine proxy'ler (bkz. nginx.conf).
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+    image: ${CI_REGISTRY_IMAGE:-vardiya-devir}/frontend:${IMAGE_TAG:-latest}
+    container_name: vardiya-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    networks:
+      - vardiya-net
+
+volumes:
+  postgres_data:
+
+networks:
+  vardiya-net:
+    driver: bridge

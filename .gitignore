@@ -1,6 +1,10 @@
 # Mac OS
 .DS_Store
 
+# Docker / ortam değişkenleri
+.env
+!.env.example
+
 # React (Frontend)
 frontend-vardiya/node_modules/
 frontend-vardiya/dist/
