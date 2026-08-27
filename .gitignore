@@ -6,6 +6,7 @@
 !.env.example
 
 # React (Frontend)
+node_modules/
 frontend-vardiya/node_modules/
 frontend-vardiya/dist/
 frontend-vardiya/build/
@@ -24,3 +25,9 @@ backend/.idea/
 
 # VS Code
 .vscode/
+
+# Claude Code (yerel dev-server config / oturum ayarları)
+.claude/
+
+# Proje ile ilgisi olmayan / repoda tutulmaması gereken dosyalar
+vardiya_devir_sunum.pptx
